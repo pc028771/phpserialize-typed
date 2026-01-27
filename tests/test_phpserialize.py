@@ -6,6 +6,7 @@ Based on original phpserialize tests
 import unittest
 from io import BytesIO
 from collections import OrderedDict
+from typing import Dict, List, Tuple, Union, Any
 
 # Import from the package - assumes phpserialize.py is in parent directory
 try:
@@ -186,10 +187,10 @@ class TestObjectSerialization(unittest.TestCase):
 
     def test_object_hook_custom(self):
         class User:
-            def __init__(self, username):
+            def __init__(self, username: str) -> None:
                 self.username = username
         
-        def custom_hook(name, d):
+        def custom_hook(name: Union[str, bytes], d: Dict[Union[str, int, bytes], Any]) -> User:
             if name == b'WP_User' or name == 'WP_User':
                 # Convert bytes keys if needed
                 username = d.get(b'username') or d.get('username')
@@ -232,7 +233,7 @@ class TestArrayHooks(unittest.TestCase):
         self.assertEqual(list(result.values()), [1, 2])
 
     def test_array_hook_custom(self):
-        def custom_hook(items):
+        def custom_hook(items: List[Tuple[Union[str, int, bytes], Any]]) -> Dict[Union[str, int, bytes], Any]:
             # Custom processing
             return {k: v * 2 if isinstance(v, int) else v for k, v in items}
         
