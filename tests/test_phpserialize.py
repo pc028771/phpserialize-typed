@@ -7,14 +7,21 @@ import unittest
 from io import BytesIO
 from collections import OrderedDict
 
-import sys
-import os
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from phpserialize import (
-    dumps, loads, dump, load, phpobject,
-    dict_to_list, dict_to_tuple, convert_member_dict
-)
+# Import from the package - assumes phpserialize.py is in parent directory
+try:
+    from phpserialize import (
+        dumps, loads, dump, load, phpobject,
+        dict_to_list, dict_to_tuple, convert_member_dict
+    )
+except ImportError:
+    # Fallback for direct execution
+    import sys
+    import os
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    from phpserialize import (
+        dumps, loads, dump, load, phpobject,
+        dict_to_list, dict_to_tuple, convert_member_dict
+    )
 
 
 class TestBasicSerialization(unittest.TestCase):

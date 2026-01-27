@@ -1,0 +1,3 @@
+include py.typed
+include LICENSE
+include README.md

@@ -39,8 +39,8 @@ Repository = "https://github.com/pc028771/phpserialize-typed"
 [tool.setuptools]
 py-modules = ["phpserialize"]
 
-[tool.setuptools.package-data]
-phpserialize = ["py.typed"]
+# For single-module packages, include py.typed via data_files in setup()
+# or include it at the root level for distribution
 
 [tool.mypy]
 python_version = "3.9"
