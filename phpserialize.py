@@ -319,10 +319,10 @@ def _translate_member_name(name: Union[str, int, bytes]) -> Union[str, int, byte
 class phpobject:
     """Simple representation for PHP objects.  This is used """
     __slots__ = ('__name__', '__php_vars__')
-    __name__: str
+    __name__: Union[str, bytes]
     __php_vars__: PHPDict
 
-    def __init__(self, name: str, d: Optional[PHPDict] = None) -> None:
+    def __init__(self, name: Union[str, bytes], d: Optional[PHPDict] = None) -> None:
         if d is None:
             d = {}
         object.__setattr__(self, '__name__', name)
