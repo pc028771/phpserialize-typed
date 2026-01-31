@@ -260,7 +260,7 @@ r"""
 """
 from typing import (
     Any, Dict, List, Tuple, Optional, Union, Callable, Protocol,
-    TypeVar, Iterable, IO, cast, overload
+    TypeVar, Iterable, cast
 )
 import codecs
 from io import BytesIO
@@ -280,8 +280,9 @@ __all__ = ('phpobject', 'convert_member_dict', 'dict_to_list', 'dict_to_tuple',
 
 # Type aliases for better readability
 PHPValue = Union[None, bool, int, float, bytes, str, Dict[Any, Any], List[Any], Tuple[Any, ...], 'phpobject']
-PHPDict = Dict[Union[str, int, bytes], Any]
-PHPArray = List[Tuple[Union[str, int, bytes], Any]]
+PHPKey = Union[str, int, bytes]
+PHPDict = Dict[PHPKey, Any]
+PHPArray = List[Tuple[PHPKey, Any]]
 
 # Type variables
 T = TypeVar('T')
@@ -291,12 +292,12 @@ VT = TypeVar('VT')
 
 class SupportsRead(Protocol):
     """Protocol for file-like objects that support read."""
-    def read(self, n: int = -1) -> bytes: ...
+    def read(self, n: int = -1, /) -> bytes: ...
 
 
 class SupportsWrite(Protocol):
     """Protocol for file-like objects that support write."""
-    def write(self, s: bytes) -> int: ...
+    def write(self, s: bytes, /) -> int: ...
 
 
 # Type for object hooks
@@ -307,9 +308,9 @@ ArrayHook = Callable[[PHPArray], Any]
 
 def _translate_member_name(name: Union[str, int, bytes]) -> Union[str, int, bytes]:
     """Translate PHP member names to Python identifiers."""
-    if isinstance(name, str) and name[:1] == ' ':
+    if isinstance(name, str) and name.startswith(' '):
         name = name.split(None, 2)[-1]
-    elif isinstance(name, bytes) and name[:1] == b' ':
+    elif isinstance(name, bytes) and name.startswith(b' '):
         parts = name.split(None, 2)
         if len(parts) > 0:
             name = parts[-1]
@@ -367,7 +368,83 @@ def convert_member_dict(d: PHPDict) -> PHPDict:
     ...                      "default", " * is_active": True})
     {'username': 'user1', 'password': 'default', 'is_active': True}
     """
-    return dict((_translate_member_name(k), v) for k, v in d.items())
+    return {_translate_member_name(k): v for k, v in d.items()}
+
+
+class _PHPSerializer:
+    def __init__(
+        self,
+        charset: str,
+        errors: str,
+        object_hook: Optional[ObjectHookDump]
+    ) -> None:
+        self.charset = charset
+        self.errors = errors
+        self.object_hook = object_hook
+
+    def _encode_bytes(self, obj: Union[str, bytes]) -> bytes:
+        if isinstance(obj, str):
+            return obj.encode(self.charset, self.errors)
+        return obj
+
+    def _serialize_string(self, encoded: bytes) -> bytes:
+        s = BytesIO()
+        s.write(b's:')
+        s.write(str(len(encoded)).encode('latin1'))
+        s.write(b':"')
+        s.write(encoded)
+        s.write(b'";')
+        return s.getvalue()
+
+    def _serialize_key(self, obj: Any) -> bytes:
+        if isinstance(obj, (int, float, bool)):
+            return ('i:%i;' % obj).encode('latin1')
+        if isinstance(obj, (bytes, str)):
+            return self._serialize_string(self._encode_bytes(obj))
+        if obj is None:
+            return b's:0:"";'
+        raise TypeError('can\'t serialize %r as key' % type(obj))
+
+    def _serialize_array(self, iterable: Iterable[Tuple[Any, Any]], length: int) -> bytes:
+        out: List[bytes] = []
+        for key, value in iterable:
+            out.append(self._serialize_key(key))
+            out.append(self._serialize_value(value))
+        return b''.join([
+            b'a:',
+            str(length).encode('latin1'),
+            b':{',
+            b''.join(out),
+            b'}'
+        ])
+
+    def _serialize_value(self, obj: Any) -> bytes:
+        if obj is None:
+            return b'N;'
+        if isinstance(obj, bool):
+            return ('b:%i;' % obj).encode('latin1')
+        if isinstance(obj, int):
+            return ('i:%s;' % obj).encode('latin1')
+        if isinstance(obj, float):
+            return ('d:%s;' % obj).encode('latin1')
+        if isinstance(obj, (bytes, str)):
+            return self._serialize_string(self._encode_bytes(obj))
+        if isinstance(obj, dict):
+            obj_dict = cast(Dict[Any, Any], obj)
+            return self._serialize_array(obj_dict.items(), len(obj_dict))
+        if isinstance(obj, (list, tuple)):
+            obj_seq = cast(Union[List[Any], Tuple[Any, ...]], obj)
+            return self._serialize_array(enumerate(obj_seq), len(obj_seq))
+        if isinstance(obj, phpobject):
+            name_part = self._serialize_key(obj.__name__)[1:-1]
+            vars_part = self._serialize_value(obj.__php_vars__)[1:]
+            return b'O' + name_part + vars_part
+        if self.object_hook is not None:
+            return self._serialize_value(self.object_hook(obj))
+        raise TypeError('can\'t serialize %r' % type(obj))
+
+    def dumps(self, data: PHPValue) -> bytes:
+        return self._serialize_value(data)
 
 
 def dumps(
@@ -380,72 +457,108 @@ def dumps(
     instead of writing it to a file like `dump` does.  On Python 3
     this returns bytes objects, on Python 3 this returns bytestrings.
     """
-    def _serialize(obj: Any, keypos: bool) -> bytes:
-        if keypos:
-            if isinstance(obj, (int, float, bool)):
-                return ('i:%i;' % obj).encode('latin1')
-            if isinstance(obj, (bytes, str)):
-                encoded_key: bytes
-                if isinstance(obj, str):
-                    encoded_key = obj.encode(charset, errors)
-                else:
-                    encoded_key = obj
-                s = BytesIO()
-                s.write(b's:')
-                s.write(str(len(encoded_key)).encode('latin1'))
-                s.write(b':"')
-                s.write(encoded_key)
-                s.write(b'";')
-                return s.getvalue()
-            if obj is None:
-                return b's:0:"";'
-            raise TypeError('can\'t serialize %r as key' % type(obj))
-        else:
-            if obj is None:
-                return b'N;'
-            if isinstance(obj, bool):
-                return ('b:%i;' % obj).encode('latin1')
-            if isinstance(obj, int):
-                return ('i:%s;' % obj).encode('latin1')
-            if isinstance(obj, float):
-                return ('d:%s;' % obj).encode('latin1')
-            if isinstance(obj, (bytes, str)):
-                encoded_obj: bytes
-                if isinstance(obj, str):
-                    encoded_obj = obj.encode(charset, errors)
-                else:
-                    encoded_obj = obj
-                s = BytesIO()
-                s.write(b's:')
-                s.write(str(len(encoded_obj)).encode('latin1'))
-                s.write(b':"')
-                s.write(encoded_obj)
-                s.write(b'";')
-                return s.getvalue()
-            if isinstance(obj, (list, tuple, dict)):
-                out: List[bytes] = []
-                if isinstance(obj, dict):
-                    iterable: Iterable[Tuple[Any, Any]] = obj.items()
-                else:
-                    iterable = enumerate(obj)
-                for key, value in iterable:
-                    out.append(_serialize(key, True))
-                    out.append(_serialize(value, False))
-                return b''.join([
-                    b'a:',
-                    str(len(obj)).encode('latin1'),
-                    b':{',
-                    b''.join(out),
-                    b'}'
-                ])
-            if isinstance(obj, phpobject):
-                return b'O' + _serialize(obj.__name__, True)[1:-1] + \
-                       _serialize(obj.__php_vars__, False)[1:]
-            if object_hook is not None:
-                return _serialize(object_hook(obj), False)
-            raise TypeError('can\'t serialize %r' % type(obj))
+    serializer = _PHPSerializer(charset, errors, object_hook)
+    return serializer.dumps(data)
 
-    return _serialize(data, False)
+
+class _PHPUnserializer:
+    def __init__(
+        self,
+        fp: SupportsRead,
+        charset: str,
+        errors: str,
+        decode_strings: bool,
+        object_hook: Optional[ObjectHookLoad],
+        array_hook: Optional[ArrayHook]
+    ) -> None:
+        self.fp = fp
+        self.charset = charset
+        self.errors = errors
+        self.decode_strings = decode_strings
+        self.object_hook = object_hook
+        self.array_hook = cast(ArrayHook, array_hook or dict)
+
+    def load(self) -> Any:
+        return self._unserialize()
+
+    def _expect(self, expected: bytes) -> None:
+        value = self.fp.read(len(expected))
+        if value != expected:
+            raise ValueError('failed expectation, expected %r got %r' % (expected, value))
+
+    def _read_until(self, delim: bytes) -> bytes:
+        buf: List[bytes] = []
+        while True:
+            char = self.fp.read(1)
+            if char == delim:
+                break
+            if not char:
+                raise ValueError('unexpected end of stream')
+            buf.append(char)
+        return b''.join(buf)
+
+    def _read_string(self) -> Union[str, bytes]:
+        self._expect(b':')
+        length = int(self._read_until(b':'))
+        self._expect(b'"')
+        data_bytes = self.fp.read(length)
+        self._expect(b'"')
+        self._expect(b';')
+        if self.decode_strings:
+            return data_bytes.decode(self.charset, self.errors)
+        return data_bytes
+
+    def _load_array(self) -> PHPArray:
+        items = int(self._read_until(b':')) * 2
+        self._expect(b'{')
+        result: PHPArray = []
+        missing = object()
+        last_item: Any = missing
+        for _ in range(items):
+            item = self._unserialize()
+            if last_item is missing:
+                last_item = item
+            else:
+                result.append((last_item, item))
+                last_item = missing
+        self._expect(b'}')
+        return result
+
+    def _load_object(self) -> Any:
+        if self.object_hook is None:
+            raise ValueError('object in serialization dump but object_hook not given.')
+        self._expect(b':')
+        name_length = int(self._read_until(b':'))
+        self._expect(b'"')
+        name_bytes = self.fp.read(name_length)
+        self._expect(b'":')
+        if self.decode_strings:
+            name: Union[bytes, str] = name_bytes.decode(self.charset, self.errors)
+        else:
+            name = name_bytes
+        return self.object_hook(name, dict(self._load_array()))
+
+    def _unserialize(self) -> Any:
+        type_ = self.fp.read(1).lower()
+        if type_ == b'n':
+            self._expect(b';')
+            return None
+        if type_ in b'idb':
+            self._expect(b':')
+            data = self._read_until(b';')
+            if type_ == b'i':
+                return int(data)
+            if type_ == b'd':
+                return float(data)
+            return int(data) != 0
+        if type_ == b's':
+            return self._read_string()
+        if type_ == b'a':
+            self._expect(b':')
+            return self.array_hook(self._load_array())
+        if type_ == b'o':
+            return self._load_object()
+        raise ValueError('unexpected opcode')
 
 
 def load(
@@ -478,86 +591,8 @@ def load(
     for all array items.  This can for example be set to
     `collections.OrderedDict` for an ordered, hashed dictionary.
     """
-    if array_hook is None:
-        array_hook = dict
-
-    def _expect(e: bytes) -> None:
-        v = fp.read(len(e))
-        if v != e:
-            raise ValueError('failed expectation, expected %r got %r' % (e, v))
-
-    def _read_until(delim: bytes) -> bytes:
-        buf: List[bytes] = []
-        while True:
-            char = fp.read(1)
-            if char == delim:
-                break
-            elif not char:
-                raise ValueError('unexpected end of stream')
-            buf.append(char)
-        return b''.join(buf)
-
-    def _load_array() -> PHPArray:
-        items = int(_read_until(b':')) * 2
-        _expect(b'{')
-        result: PHPArray = []
-        last_item: Any = Ellipsis
-        for idx in range(items):
-            item = _unserialize()
-            if last_item is Ellipsis:
-                last_item = item
-            else:
-                result.append((last_item, item))
-                last_item = Ellipsis
-        _expect(b'}')
-        return result
-
-    def _unserialize() -> Any:
-        type_ = fp.read(1).lower()
-        if type_ == b'n':
-            _expect(b';')
-            return None
-        if type_ in b'idb':
-            _expect(b':')
-            data = _read_until(b';')
-            if type_ == b'i':
-                return int(data)
-            if type_ == b'd':
-                return float(data)
-            return int(data) != 0
-        if type_ == b's':
-            _expect(b':')
-            length = int(_read_until(b':'))
-            _expect(b'"')
-            data_bytes = fp.read(length)
-            _expect(b'"')
-            if decode_strings:
-                data_str: Union[bytes, str] = data_bytes.decode(charset, errors)
-            else:
-                data_str = data_bytes
-            _expect(b';')
-            return data_str
-        if type_ == b'a':
-            _expect(b':')
-            return array_hook(_load_array())
-        if type_ == b'o':
-            if object_hook is None:
-                raise ValueError('object in serialization dump but '
-                                 'object_hook not given.')
-            _expect(b':')
-            name_length = int(_read_until(b':'))
-            _expect(b'"')
-            name_bytes = fp.read(name_length)
-            _expect(b'":')
-            name: Union[bytes, str]
-            if decode_strings:
-                name = name_bytes.decode(charset, errors)
-            else:
-                name = name_bytes
-            return object_hook(name, dict(_load_array()))
-        raise ValueError('unexpected opcode')
-
-    return _unserialize()
+    unserializer = _PHPUnserializer(fp, charset, errors, decode_strings, object_hook, array_hook)
+    return unserializer.load()
 
 
 def loads(
