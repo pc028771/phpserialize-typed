@@ -1,27 +1,26 @@
 [build-system]
-requires = ["setuptools>=45", "wheel", "setuptools_scm[toml]>=6.2"]
+requires = ["setuptools>=45", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "phpserialize-typed"
-version = "1.4.0"
+version = "1.0.0"
 description = "A PHP serializer/unserializer for Python with comprehensive type annotations"
 readme = "README.md"
 requires-python = ">=3.7"
-license = {text = "BSD-3-Clause"}
+license = "BSD-3-Clause"
+license-files = ["LICENSE"]
 authors = [
     {name = "Howard Yang", email = "pc028771@users.noreply.github.com"}
 ]
 maintainers = [
     {name = "Howard Yang", email = "pc028771@users.noreply.github.com"}
 ]
-keywords = ["php", "serialize", "unserialize", "serialization", "typing", "type-hints"]
+keywords = ["php", "serialize", "unserialize", "serialization", "typing", "type-hints", "php-serialization", "data-interchange", "typed"]
 classifiers = [
-    "Development Status :: 5 - Production/Stable",
+    "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: BSD License",
     "Operating System :: OS Independent",
-    "Programming Language :: PHP",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.7",
@@ -36,16 +35,22 @@ classifiers = [
 [project.urls]
 Homepage = "https://github.com/pc028771/phpserialize-typed"
 Repository = "https://github.com/pc028771/phpserialize-typed"
+Issues = "https://github.com/pc028771/phpserialize-typed/issues"
+Changelog = "https://github.com/pc028771/phpserialize-typed/blob/master/CHANGELOG.md"
 "Original Project" = "https://github.com/mitsuhiko/phpserialize"
 
 [project.optional-dependencies]
 dev = [
     "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
     "mypy>=1.0.0",
 ]
 
 [tool.setuptools]
 py-modules = ["phpserialize"]
+
+[tool.setuptools.package-data]
+phpserialize = ["py.typed"]
 
 # For single-module packages, include py.typed via data_files in setup()
 # or include it at the root level for distribution

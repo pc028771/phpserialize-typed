@@ -182,22 +182,16 @@ mypy phpserialize.py --strict
 
 - `dumps(data, charset='utf-8', errors='surrogateescape', object_hook=None) -> bytes`
   - Serialize Python object to PHP format
-  
 - `loads(data, charset='utf-8', errors='surrogateescape', decode_strings=False, object_hook=None, array_hook=None) -> Any`
   - Unserialize PHP data to Python object
-  
 - `dump(data, fp, charset='utf-8', errors='surrogateescape', object_hook=None) -> None`
   - Serialize to file-like object
-  
 - `load(fp, charset='utf-8', errors='surrogateescape', decode_strings=False, object_hook=None, array_hook=None) -> Any`
   - Unserialize from file-like object
-  
 - `dict_to_list(d) -> list`
   - Convert dict with sequential integer keys to list
-  
 - `dict_to_tuple(d) -> tuple`
   - Convert dict with sequential integer keys to tuple
-  
 - `convert_member_dict(d) -> dict`
   - Convert PHP member names to Python identifiers
 
@@ -256,12 +250,27 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## Changelog
 
-### 1.4.0 (phpserialize-typed)
-- Added comprehensive type annotations for all functions and classes
-- Added Protocol types for file-like objects
-- Improved type safety with Generic types
-- Added py.typed marker for PEP 561 compliance
-- Maintained full backward compatibility with phpserialize 1.3
+### 1.0.0 (2026-01-31)
 
-### Previous versions
-See the [original phpserialize changelog](https://github.com/mitsuhiko/phpserialize) for version history before 1.4.0.
+First release of phpserialize-typed as an independent fork.
+
+**Added:**
+
+- Comprehensive type annotations for all functions and classes
+- Protocol types for file-like objects (SupportsRead, SupportsWrite)
+- PEP 561 compliance with py.typed marker
+- Full pytest test suite (37 tests)
+- Development dependencies (pytest, mypy, pytest-cov)
+
+**Changed:**
+
+- Migrated tests from unittest to pytest
+- Refactored serialization/unserialization into class-based architecture
+- Improved type safety with Generic types and stricter annotations
+
+**Maintained:**
+
+- Full backward compatibility with phpserialize 1.3 API
+- All original functionality and behavior
+
+Based on [phpserialize](https://github.com/mitsuhiko/phpserialize) by Armin Ronacher.

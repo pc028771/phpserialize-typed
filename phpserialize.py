@@ -273,7 +273,7 @@ except LookupError:
 
 
 __author__ = 'Armin Ronacher <armin.ronacher@active-4.com>'
-__version__ = '1.4'
+__version__ = '1.0.0'
 __all__ = ('phpobject', 'convert_member_dict', 'dict_to_list', 'dict_to_tuple',
            'load', 'loads', 'dump', 'dumps', 'serialize', 'unserialize')
 
