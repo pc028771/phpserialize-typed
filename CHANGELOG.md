@@ -5,6 +5,13 @@ All notable changes to phpserialize-typed will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.1] - 2026-02-05
+
+### Fixed
+
+- Fixed `py.typed` not being included in wheel distributions
+- Converted from single-file module to src layout package structure for proper PEP 561 compliance
+
 ## [1.0.0] - 2026-01-31
 
 First release of phpserialize-typed as an independent fork of [phpserialize](https://github.com/mitsuhiko/phpserialize).
@@ -46,4 +53,5 @@ Based on [phpserialize](https://github.com/mitsuhiko/phpserialize) by Armin Rona
 For the changelog of the original phpserialize library (versions prior to this fork), see:
 https://github.com/mitsuhiko/phpserialize
 
+[1.0.1]: https://github.com/pc028771/phpserialize-typed/releases/tag/v1.0.1
 [1.0.0]: https://github.com/pc028771/phpserialize-typed/releases/tag/v1.0.0

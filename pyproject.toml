@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "phpserialize-typed"
-version = "1.0.0"
+version = "1.0.1"
 description = "A PHP serializer/unserializer for Python with comprehensive type annotations"
 readme = "README.md"
 requires-python = ">=3.7"
@@ -46,14 +46,11 @@ dev = [
     "mypy>=1.0.0",
 ]
 
-[tool.setuptools]
-py-modules = ["phpserialize"]
+[tool.setuptools.packages.find]
+where = ["src"]
 
 [tool.setuptools.package-data]
 phpserialize = ["py.typed"]
-
-# For single-module packages, include py.typed via data_files in setup()
-# or include it at the root level for distribution
 
 [tool.mypy]
 python_version = "3.9"

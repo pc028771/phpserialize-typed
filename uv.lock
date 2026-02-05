@@ -766,7 +766,7 @@ wheels = [
 
 [[package]]
 name = "phpserialize-typed"
-version = "1.0.0"
+version = "1.0.1"
 source = { editable = "." }
 
 [package.optional-dependencies]
